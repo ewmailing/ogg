@@ -11,6 +11,16 @@ if(APPLE)
     option(BUILD_FRAMEWORK "Build Framework bundle for OSX" OFF)
 endif()
 
+# Blurrr disable version by default
+option(OGG_OPTION_USE_VERSION OFF)
+if(ANDROID)
+	set(OGG_USE_VERSION OFF)
+else()
+	set(OGG_USE_VERSION ${OGG_OPTION_USE_VERSION})
+endif()
+
+
+
 # Extract project version from configure.ac
 file(READ configure.ac CONFIGURE_AC_CONTENTS)
 string(REGEX MATCH "AC_INIT\\(\\[libogg\\],\\[([0-9]*).([0-9]*).([0-9]*)" DUMMY ${CONFIGURE_AC_CONTENTS})
@@ -84,13 +94,22 @@ include_directories(include ${CMAKE_CURRENT_BINARY_DIR}/include)
 add_library(ogg ${OGG_HEADERS} ${OGG_SOURCES})
 
 get_version_info(OGG_VERSION_INFO "LIB_CURRENT" "LIB_AGE" "LIB_REVISION")
+
+if(OGG_USE_VERSION)
 set_target_properties(
     ogg PROPERTIES
     SOVERSION ${OGG_VERSION_INFO}
     PUBLIC_HEADER "${OGG_HEADERS}"
 )
+else()
+set_target_properties(
+    ogg PROPERTIES
+    PUBLIC_HEADER "${OGG_HEADERS}"
+)
+endif()
 
 if(BUILD_FRAMEWORK)
+if(OGG_USE_VERSION)
     set_target_properties(ogg PROPERTIES
         FRAMEWORK TRUE
         FRAMEWORK_VERSION ${PROJECT_VERSION}
@@ -100,6 +119,16 @@ if(BUILD_FRAMEWORK)
         XCODE_ATTRIBUTE_INSTALL_PATH "@rpath"
         OUTPUT_NAME Ogg
     )
+else()
+    set_target_properties(ogg PROPERTIES
+        FRAMEWORK TRUE
+        MACOSX_FRAMEWORK_IDENTIFIER org.xiph.ogg
+        MACOSX_FRAMEWORK_SHORT_VERSION_STRING ${PROJECT_VERSION}
+        MACOSX_FRAMEWORK_BUNDLE_VERSION ${PROJECT_VERSION}
+        XCODE_ATTRIBUTE_INSTALL_PATH "@rpath"
+        OUTPUT_NAME Ogg
+    )
+endif()
 endif()
 
 configure_pkg_config_file(ogg.pc.in)
@@ -114,3 +143,11 @@ install(TARGETS ogg
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/ogg.pc
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig
 )
+
+# Blurrr: Sets the deployment target and other useful build options
+set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/CMakeModules/" ${CMAKE_MODULE_PATH})
+IF(APPLE)
+	INCLUDE(XcodeDefaults)
+	BLURRR_CONFIGURE_XCODE_DEFAULTS(ogg)
+ENDIF()
+
